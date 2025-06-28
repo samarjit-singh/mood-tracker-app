@@ -1,17 +1,83 @@
 "use client";
-// import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ArrowLeft, Clock, Heart } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import "dotenv/config";
 
 export default function LogMoodPage() {
   const router = useRouter();
 
+  const [locationStatus, setLocationStatus] = useState<
+    "idle" | "loading" | "success" | "error"
+  >("idle");
+  const [currentTime, setCurrentTime] = useState("");
+
   const handleNext = () => {
     router.push("/log-mood/feeling-slider");
   };
+
+  useEffect(() => {
+    const formattedTime = new Date().toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    setCurrentTime(formattedTime);
+  }, []);
+
+  useEffect(() => {
+    const fetchLocation = async (lat: number, lng: number) => {
+      try {
+        const res = await fetch(
+          `https://api.opencagedata.com/geocode/v1/json?q=${lat}+${lng}&key=${process.env.NEXT_PUBLIC_OPENCAGEDATA_API_KEY}`
+        );
+        const data = await res.json();
+
+        if (data?.results?.[0]) {
+          const components = data.results[0].components;
+
+          const locationInfo = {
+            latitude: lat,
+            longitude: lng,
+            city: components.city || components.town || components.village,
+            district: components.suburb || components.county,
+            state: components.state,
+            country: components.country,
+          };
+
+          sessionStorage.setItem("userLocation", JSON.stringify(locationInfo));
+          setLocationStatus("success");
+        }
+      } catch (error) {
+        console.log("Reverse geocoding failed:", error);
+        setLocationStatus("error");
+      }
+    };
+
+    if (typeof window !== "undefined" && "geolocation" in navigator) {
+      setLocationStatus("loading");
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          fetchLocation(latitude, longitude);
+        },
+        (error) => {
+          console.error("Error getting location:", error.message);
+          setLocationStatus("error");
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0,
+        }
+      );
+    } else {
+      setLocationStatus("error");
+    }
+  }, []);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -77,10 +143,7 @@ export default function LogMoodPage() {
                   </div>
                   <div className="ml-auto">
                     <div className="text-blue-600 text-sm font-medium">
-                      {new Date().toLocaleTimeString([], {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
+                      {currentTime}
                     </div>
                   </div>
                 </div>
@@ -98,10 +161,18 @@ export default function LogMoodPage() {
             <Button
               onClick={handleNext}
               className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white disabled:bg-gray-300"
+              disabled={locationStatus !== "success"}
             >
               Continue
             </Button>
           </div>
+
+          {/* Location Prompt */}
+          {locationStatus === "error" && (
+            <div className="mt-4 text-center text-red-600 text-sm">
+              ⚠️ Please enable location access to continue.
+            </div>
+          )}
 
           {/* Help Text */}
           <div className="mt-6 text-center">

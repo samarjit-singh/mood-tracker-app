@@ -35,14 +35,18 @@ export default function ImpactFactorsPage() {
   const [additionalContext, setAdditionalContext] = useState("");
   const [selectedEmotions, setSelectedEmotions] = useState<string[]>([]);
   const [feelingState, setFeelingState] = useState<any>(null);
+  const [locationInfo, setLocationInfo] = useState<any>(null);
+
   const router = useRouter();
 
   useEffect(() => {
     const emotions = sessionStorage.getItem("selectedEmotions");
     const storedFeelingState = sessionStorage.getItem("feelingState");
+    const storedLocation = sessionStorage.getItem("userLocation");
 
     if (emotions) setSelectedEmotions(JSON.parse(emotions));
     if (storedFeelingState) setFeelingState(JSON.parse(storedFeelingState));
+    if (storedLocation) setLocationInfo(JSON.parse(storedLocation));
   }, []);
 
   const toggleFactor = (factor: string) => {
@@ -59,6 +63,7 @@ export default function ImpactFactorsPage() {
       feelingState: feelingState,
       impactFactors: selectedFactors,
       additionalContext,
+      location: locationInfo,
       timestamp: new Date().toISOString(),
     };
 
@@ -72,6 +77,7 @@ export default function ImpactFactorsPage() {
       if (response.ok) {
         sessionStorage.removeItem("selectedEmotions");
         sessionStorage.removeItem("feelingState");
+        sessionStorage.removeItem("userLocation");
 
         router.push("/dashboard");
       }
