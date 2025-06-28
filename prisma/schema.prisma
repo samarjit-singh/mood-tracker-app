@@ -1,0 +1,32 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model MoodEntry {
+  id          String   @id @default(cuid())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  selectedEmotions    String[]  // Array of emotions like ["Excited", "Happy"]
+  feelingStateValue   Int       // The numeric value (1-5 scale)
+  feelingStateLabel   String    // "Very Bad", "Bad", "Neutral", "Good", "Very Good"
+  feelingStateShortLabel String // "Awful", "Meh", "Okay", "Good", "Great"
+  feelingStateDescription String // Description of the feeling
+  impactFactors       String[]  // Array of impact factors
+  additionalContext   String?   // Optional additional context
+  timestamp           DateTime  // Original timestamp from frontend
+  
+  latitude    Float?
+  longitude   Float?
+  city        String?
+  district    String?
+  state       String?
+  country     String?
+  
+  @@map("mood_entries")
+}
