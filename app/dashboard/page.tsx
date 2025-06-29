@@ -4,6 +4,14 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ArrowLeft, MapPin, Globe } from "lucide-react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
+
+const MoodHeatMap = dynamic(
+  () => import("@/app/dashboard/components/MoodHeatMap"),
+  {
+    ssr: false,
+  }
+);
 
 interface MoodEntry {
   id: string;
@@ -121,26 +129,6 @@ export default function DashboardPage() {
     setLocationData(processedData);
   };
 
-  const getMoodColor = (averageMood: number) => {
-    if (averageMood <= 1) return "bg-red-500";
-    if (averageMood <= 2) return "bg-orange-300";
-    if (averageMood <= 3) return "bg-yellow-400";
-    if (averageMood <= 4) return "bg-green-300";
-    if (averageMood <= 5) return "bg-green-500";
-    return "bg-green-600";
-  };
-
-  const getMoodIntensity = (totalEntries: number, maxEntries: number) => {
-    const intensity = totalEntries / maxEntries;
-    if (intensity >= 0.8) return "opacity-100";
-    if (intensity >= 0.6) return "opacity-80";
-    if (intensity >= 0.4) return "opacity-60";
-    if (intensity >= 0.2) return "opacity-40";
-    return "opacity-20";
-  };
-
-  const maxEntries = Math.max(...locationData.map((d) => d.totalEntries), 1);
-
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -234,7 +222,6 @@ export default function DashboardPage() {
           {/* Mood Heatmap Tab */}
           {activeTab === "Mood Heatmap" && (
             <div className="space-y-6">
-              {/* Heatmap Legend */}
               <Card className="bg-white border border-gray-200 shadow-sm">
                 <div className="p-6">
                   <div className="flex items-center justify-between mb-4">
@@ -243,95 +230,10 @@ export default function DashboardPage() {
                       Mood Heatmap
                     </h3>
                     <div className="text-sm text-gray-600">
-                      Bubble size = Number of entries, Color = Average mood
+                      Heat = Mood intensity by location
                     </div>
                   </div>
-
-                  {/* Color Legend */}
-                  <div className="flex items-center space-x-4 mb-6">
-                    <span className="text-sm text-gray-600">Mood Scale:</span>
-                    <div className="flex items-center space-x-2">
-                      <div className="w-4 h-4 bg-red-500 rounded"></div>
-                      <span className="text-xs">Very Bad</span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <div className="w-4 h-4 bg-orange-500 rounded"></div>
-                      <span className="text-xs">Bad</span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <div className="w-4 h-4 bg-yellow-500 rounded"></div>
-                      <span className="text-xs">Neutral</span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <div className="w-4 h-4 bg-green-400 rounded"></div>
-                      <span className="text-xs">Good</span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <div className="w-4 h-4 bg-green-600 rounded"></div>
-                      <span className="text-xs">Very Good</span>
-                    </div>
-                  </div>
-
-                  {/* Heatmap Visualization */}
-                  <div className="bg-gray-50 rounded-lg p-8 min-h-[400px] relative overflow-hidden">
-                    {/* Grid background */}
-                    <div
-                      className="absolute inset-0 opacity-5"
-                      style={{
-                        backgroundImage: `
-                          linear-gradient(to right, #000 1px, transparent 1px),
-                          linear-gradient(to bottom, #000 1px, transparent 1px)
-                        `,
-                        backgroundSize: "40px 40px",
-                      }}
-                    />
-
-                    {/* Location bubbles */}
-                    <div className="relative h-full">
-                      {locationData.map((location, index) => {
-                        const size = Math.max(
-                          40,
-                          (location.totalEntries / maxEntries) * 120
-                        );
-                        const x = (index % 6) * 120 + 60;
-                        const y = Math.floor(index / 6) * 100 + 60;
-
-                        return (
-                          <div
-                            key={location.location}
-                            className={`absolute rounded-full ${getMoodColor(
-                              location.averageMood
-                            )} ${getMoodIntensity(
-                              location.totalEntries,
-                              maxEntries
-                            )} 
-                              flex items-center justify-center text-white font-bold text-xs cursor-pointer
-                              hover:scale-110 transition-transform duration-200 shadow-lg`}
-                            style={{
-                              width: `${size}px`,
-                              height: `${size}px`,
-                              left: `${x}px`,
-                              top: `${y}px`,
-                            }}
-                            title={`${
-                              location.location
-                            }: ${location.averageMood.toFixed(1)} avg mood, ${
-                              location.totalEntries
-                            } entries`}
-                          >
-                            <div className="text-center">
-                              <div className="text-xs font-bold">
-                                {location.totalEntries}
-                              </div>
-                              <div className="text-xs opacity-90">
-                                {location.averageMood.toFixed(1)}
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
+                  <MoodHeatMap moodEntries={moodEntries} />
                 </div>
               </Card>
             </div>
@@ -348,20 +250,17 @@ export default function DashboardPage() {
                   <div className="p-6">
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center space-x-3">
-                        <div
-                          className={`w-4 h-4 ${getMoodColor(
-                            location.averageMood
-                          )} rounded-full`}
-                        ></div>
                         <div>
                           <h3 className="text-lg font-semibold text-gray-900 flex items-center">
                             <MapPin className="w-4 h-4 mr-1" />
                             {location.location}
                           </h3>
-                          <p className="text-sm text-gray-600">
-                            {location.totalEntries} entries • Avg mood:{" "}
-                            {location.averageMood.toFixed(1)}/6
-                          </p>
+                          <div className="flex flex-col text-sm text-gray-600">
+                            <p>• {location.totalEntries} entries </p>
+                            <p>
+                              • Avg mood: {location.averageMood.toFixed(1)}/6
+                            </p>
+                          </div>
                         </div>
                       </div>
                       <div className="text-right">
