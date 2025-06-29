@@ -1,7 +1,7 @@
 "use client";
 import { Card } from "@/components/ui/card";
 import Link from "next/link";
-import { Plus, BarChart3, TrendingUp, Calendar, Heart } from "lucide-react";
+import { Plus, BarChart3, Heart } from "lucide-react";
 
 export default function HomePage() {
   return (
@@ -32,33 +32,6 @@ export default function HomePage() {
               your mental wellbeing with our comprehensive mood tracking
               platform.
             </p>
-          </div>
-
-          {/* Quick Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-            <Card className="bg-white border border-gray-200 p-6">
-              <div className="flex items-center space-x-3">
-                <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                  <Calendar className="w-6 h-6 text-blue-600" />
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">This Week</p>
-                  <p className="text-2xl font-bold text-gray-900">5 entries</p>
-                </div>
-              </div>
-            </Card>
-
-            <Card className="bg-white border border-gray-200 p-6">
-              <div className="flex items-center space-x-3">
-                <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                  <TrendingUp className="w-6 h-6 text-green-600" />
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Average Mood</p>
-                  <p className="text-2xl font-bold text-gray-900">Good</p>
-                </div>
-              </div>
-            </Card>
           </div>
 
           {/* Main Actions */}

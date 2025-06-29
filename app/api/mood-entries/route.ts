@@ -1,8 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-const moodEntries: any[] = [];
-
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -45,10 +43,14 @@ export async function POST(request: NextRequest) {
 
 export async function GET() {
   try {
-    return NextResponse.json(moodEntries);
+    const entries = await prisma.moodEntry.findMany({
+      orderBy: { createdAt: "desc" },
+    });
+
+    return NextResponse.json(entries);
   } catch (error: any) {
     return NextResponse.json(
-      { error: "Failed to fetch mood entries" + error.message },
+      { error: "Failed to fetch mood entries" + error?.message },
       { status: 500 }
     );
   }

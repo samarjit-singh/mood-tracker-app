@@ -2,22 +2,42 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { ArrowLeft, TrendingUp, Users, Brain } from "lucide-react";
+import { ArrowLeft, MapPin, Globe } from "lucide-react";
 import Link from "next/link";
 
 interface MoodEntry {
   id: string;
-  currentFeeling: string;
-  selectedEmotion: string[];
-  feelingState: any;
+  selectedEmotions: string[];
+  feelingStateValue: number;
+  feelingStateLabel: string;
   impactFactors: string[];
   timestamp: string;
+  city?: string;
+  district?: string;
+  state?: string;
+  country?: string;
+  latitude?: number;
+  longitude?: number;
+}
+
+interface LocationMoodData {
+  location: string;
+  averageMood: number;
+  totalEntries: number;
+  moodDistribution: {
+    veryBad: number;
+    bad: number;
+    neutral: number;
+    good: number;
+    veryGood: number;
+  };
+  topEmotions: string[];
 }
 
 export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState("Overview");
-  const [timePeriod, setTimePeriod] = useState("6M");
   const [moodEntries, setMoodEntries] = useState<MoodEntry[]>([]);
+  const [locationData, setLocationData] = useState<LocationMoodData[]>([]);
 
   useEffect(() => {
     fetchMoodEntries();
@@ -29,41 +49,97 @@ export default function DashboardPage() {
       if (response.ok) {
         const data = await response.json();
         setMoodEntries(data);
+        processLocationData(data);
       }
     } catch (error) {
       console.error("Error fetching mood entries:", error);
     }
   };
 
-  const generateMoodData = () => {
-    const data = [];
-    for (let i = 0; i < 30; i++) {
-      data.push({
-        day: i,
-        mood: Math.random() * 4 + 1,
-        color:
-          Math.random() > 0.7
-            ? "bg-orange-400"
-            : Math.random() > 0.4
-            ? "bg-green-400"
-            : "bg-blue-400",
-      });
-    }
-    return data;
+  const processLocationData = (entries: MoodEntry[]) => {
+    const locationMap = new Map<
+      string,
+      {
+        moods: number[];
+        emotions: string[];
+        entries: number;
+      }
+    >();
+
+    entries.forEach((entry) => {
+      if (entry.city && entry.state && entry.country) {
+        const locationKey = `${entry.city}, ${entry.state}, ${entry.country}`;
+
+        if (!locationMap.has(locationKey)) {
+          locationMap.set(locationKey, {
+            moods: [],
+            emotions: [],
+            entries: 0,
+          });
+        }
+
+        const locationData = locationMap.get(locationKey)!;
+        locationData.moods.push(entry.feelingStateValue);
+        locationData.emotions.push(...entry.selectedEmotions);
+        locationData.entries++;
+      }
+    });
+
+    const processedData: LocationMoodData[] = Array.from(locationMap.entries())
+      .map(([location, data]) => {
+        const averageMood =
+          data.moods.reduce((sum, mood) => sum + mood, 0) / data.moods.length;
+
+        const moodDistribution = {
+          veryBad: data.moods.filter((m) => m === 0).length,
+          bad: data.moods.filter((m) => m === 1).length,
+          neutral: data.moods.filter((m) => m === 2 || m === 3).length,
+          good: data.moods.filter((m) => m === 4 || m === 5).length,
+          veryGood: data.moods.filter((m) => m === 6).length,
+        };
+
+        const emotionCounts = data.emotions.reduce((acc, emotion) => {
+          acc[emotion] = (acc[emotion] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>);
+
+        const topEmotions = Object.entries(emotionCounts)
+          .sort(([, a], [, b]) => b - a)
+          .slice(0, 3)
+          .map(([emotion]) => emotion);
+
+        return {
+          location,
+          averageMood,
+          totalEntries: data.entries,
+          moodDistribution,
+          topEmotions,
+        };
+      })
+      .sort((a, b) => b.totalEntries - a.totalEntries);
+
+    setLocationData(processedData);
   };
 
-  const generateExerciseData = () => {
-    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun"];
-    return months.map((month) => ({
-      month,
-      minutes: Math.floor(Math.random() * 80) + 20,
-    }));
+  const getMoodColor = (averageMood: number) => {
+    if (averageMood <= 1) return "bg-red-500";
+    if (averageMood <= 2) return "bg-orange-300";
+    if (averageMood <= 3) return "bg-yellow-400";
+    if (averageMood <= 4) return "bg-green-300";
+    if (averageMood <= 5) return "bg-green-500";
+    return "bg-green-600";
   };
 
-  const moodData = generateMoodData();
-  const exerciseData = generateExerciseData();
+  const getMoodIntensity = (totalEntries: number, maxEntries: number) => {
+    const intensity = totalEntries / maxEntries;
+    if (intensity >= 0.8) return "opacity-100";
+    if (intensity >= 0.6) return "opacity-80";
+    if (intensity >= 0.4) return "opacity-60";
+    if (intensity >= 0.2) return "opacity-40";
+    return "opacity-20";
+  };
 
-  console.log("exerciseData", exerciseData);
+  const maxEntries = Math.max(...locationData.map((d) => d.totalEntries), 1);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -86,44 +162,21 @@ export default function DashboardPage() {
       </header>
 
       <div className="container mx-auto px-4 py-8">
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-6xl mx-auto">
           {/* Title Section */}
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              Your Mood Insights
+              Global Mood Insights
             </h1>
             <p className="text-gray-600">
-              Discover patterns and trends in your emotional wellbeing
+              Discover collective emotional patterns across different locations
             </p>
           </div>
 
           {/* Time Period Selector */}
           <Card className="bg-white border border-gray-200 shadow-sm mb-8">
             <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">
-                  Time Period
-                </h3>
-                <div className="flex space-x-2">
-                  {["W", "M", "6M", "Y"].map((period) => (
-                    <Button
-                      key={period}
-                      variant={timePeriod === period ? "default" : "outline"}
-                      size="sm"
-                      className={`${
-                        timePeriod === period
-                          ? "bg-green-600 text-white"
-                          : "bg-white text-gray-700"
-                      }`}
-                      onClick={() => setTimePeriod(period)}
-                    >
-                      {period}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Stats Grid */}
+              {/* Global Stats Grid */}
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="text-center p-4 bg-gray-50 rounded-lg">
                   <div className="text-2xl font-bold text-gray-900">
@@ -132,16 +185,29 @@ export default function DashboardPage() {
                   <div className="text-sm text-gray-600">Total Entries</div>
                 </div>
                 <div className="text-center p-4 bg-green-50 rounded-lg">
-                  <div className="text-2xl font-bold text-green-600">4.2</div>
-                  <div className="text-sm text-gray-600">Avg Mood</div>
+                  <div className="text-2xl font-bold text-green-600">
+                    {locationData.length}
+                  </div>
+                  <div className="text-sm text-gray-600">Locations</div>
                 </div>
                 <div className="text-center p-4 bg-blue-50 rounded-lg">
-                  <div className="text-2xl font-bold text-blue-600">85%</div>
-                  <div className="text-sm text-gray-600">Positive Days</div>
+                  <div className="text-2xl font-bold text-blue-600">
+                    {locationData.length > 0
+                      ? (
+                          locationData.reduce(
+                            (sum, loc) => sum + loc.averageMood,
+                            0
+                          ) / locationData.length
+                        ).toFixed(1)
+                      : "0"}
+                  </div>
+                  <div className="text-sm text-gray-600">Global Avg Mood</div>
                 </div>
                 <div className="text-center p-4 bg-purple-50 rounded-lg">
-                  <div className="text-2xl font-bold text-purple-600">7</div>
-                  <div className="text-sm text-gray-600">Day Streak</div>
+                  <div className="text-2xl font-bold text-purple-600">
+                    {locationData.filter((loc) => loc.averageMood >= 4).length}
+                  </div>
+                  <div className="text-sm text-gray-600">Happy Locations</div>
                 </div>
               </div>
             </div>
@@ -149,7 +215,7 @@ export default function DashboardPage() {
 
           {/* Tabs */}
           <div className="flex space-x-1 mb-6 bg-white rounded-lg p-1 border border-gray-200 shadow-sm">
-            {["Overview", "Trends", "Factors", "Insights"].map((tab) => (
+            {["Mood Heatmap", "Location Details"].map((tab) => (
               <Button
                 key={tab}
                 variant={activeTab === tab ? "default" : "ghost"}
@@ -165,103 +231,202 @@ export default function DashboardPage() {
             ))}
           </div>
 
-          {/* Content based on active tab */}
-          {activeTab === "Overview" && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Mood Chart */}
+          {/* Mood Heatmap Tab */}
+          {activeTab === "Mood Heatmap" && (
+            <div className="space-y-6">
+              {/* Heatmap Legend */}
               <Card className="bg-white border border-gray-200 shadow-sm">
                 <div className="p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                    Mood Over Time
-                  </h3>
-                  <div className="relative h-48 bg-gray-50 rounded-lg p-4">
-                    <div className="absolute right-4 top-4 text-xs text-gray-500">
-                      <div>Very Pleasant</div>
-                      <div className="mt-4">Neutral</div>
-                      <div className="mt-4">Very Unpleasant</div>
-                    </div>
-                    <div className="flex items-end justify-between h-full px-4 pb-4">
-                      {moodData.slice(0, 15).map((data, i) => (
-                        <div key={i} className="flex flex-col items-center">
-                          <div
-                            className={`w-2 ${data.color} rounded-full`}
-                            style={{ height: `${(data.mood / 5) * 120}px` }}
-                          />
-                        </div>
-                      ))}
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                      <Globe className="w-5 h-5 mr-2" />
+                      Mood Heatmap
+                    </h3>
+                    <div className="text-sm text-gray-600">
+                      Bubble size = Number of entries, Color = Average mood
                     </div>
                   </div>
-                </div>
-              </Card>
 
-              {/* Recent Entries */}
-              <Card className="bg-white border border-gray-200 shadow-sm">
-                <div className="p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                    Recent Entries
-                  </h3>
-                  <div className="space-y-3">
-                    {moodEntries.slice(0, 5).map((entry, index) => (
-                      <div
-                        key={index}
-                        className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg"
-                      >
-                        <div className="w-3 h-3 bg-green-500 rounded-full" />
-                        <div className="flex-1">
-                          <p className="text-sm font-medium text-gray-900">
-                            {entry.selectedEmotion || "Happy"}
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            {new Date(entry.timestamp).toLocaleDateString()}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
+                  {/* Color Legend */}
+                  <div className="flex items-center space-x-4 mb-6">
+                    <span className="text-sm text-gray-600">Mood Scale:</span>
+                    <div className="flex items-center space-x-2">
+                      <div className="w-4 h-4 bg-red-500 rounded"></div>
+                      <span className="text-xs">Very Bad</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <div className="w-4 h-4 bg-orange-500 rounded"></div>
+                      <span className="text-xs">Bad</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <div className="w-4 h-4 bg-yellow-500 rounded"></div>
+                      <span className="text-xs">Neutral</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <div className="w-4 h-4 bg-green-400 rounded"></div>
+                      <span className="text-xs">Good</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <div className="w-4 h-4 bg-green-600 rounded"></div>
+                      <span className="text-xs">Very Good</span>
+                    </div>
+                  </div>
+
+                  {/* Heatmap Visualization */}
+                  <div className="bg-gray-50 rounded-lg p-8 min-h-[400px] relative overflow-hidden">
+                    {/* Grid background */}
+                    <div
+                      className="absolute inset-0 opacity-5"
+                      style={{
+                        backgroundImage: `
+                          linear-gradient(to right, #000 1px, transparent 1px),
+                          linear-gradient(to bottom, #000 1px, transparent 1px)
+                        `,
+                        backgroundSize: "40px 40px",
+                      }}
+                    />
+
+                    {/* Location bubbles */}
+                    <div className="relative h-full">
+                      {locationData.map((location, index) => {
+                        const size = Math.max(
+                          40,
+                          (location.totalEntries / maxEntries) * 120
+                        );
+                        const x = (index % 6) * 120 + 60;
+                        const y = Math.floor(index / 6) * 100 + 60;
+
+                        return (
+                          <div
+                            key={location.location}
+                            className={`absolute rounded-full ${getMoodColor(
+                              location.averageMood
+                            )} ${getMoodIntensity(
+                              location.totalEntries,
+                              maxEntries
+                            )} 
+                              flex items-center justify-center text-white font-bold text-xs cursor-pointer
+                              hover:scale-110 transition-transform duration-200 shadow-lg`}
+                            style={{
+                              width: `${size}px`,
+                              height: `${size}px`,
+                              left: `${x}px`,
+                              top: `${y}px`,
+                            }}
+                            title={`${
+                              location.location
+                            }: ${location.averageMood.toFixed(1)} avg mood, ${
+                              location.totalEntries
+                            } entries`}
+                          >
+                            <div className="text-center">
+                              <div className="text-xs font-bold">
+                                {location.totalEntries}
+                              </div>
+                              <div className="text-xs opacity-90">
+                                {location.averageMood.toFixed(1)}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
               </Card>
             </div>
           )}
 
-          {/* Life Factors Section */}
-          <Card className="bg-white border border-gray-200 shadow-sm mt-6">
-            <div className="p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-6">
-                Life Factors Impact
-              </h3>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between p-4 bg-orange-50 rounded-lg border border-orange-200">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 bg-orange-600 rounded-lg flex items-center justify-center">
-                      <TrendingUp className="w-5 h-5 text-white" />
+          {/* Location Details Tab */}
+          {activeTab === "Location Details" && (
+            <div className="space-y-4">
+              {locationData.map((location) => (
+                <Card
+                  key={location.location}
+                  className="bg-white border border-gray-200 shadow-sm"
+                >
+                  <div className="p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center space-x-3">
+                        <div
+                          className={`w-4 h-4 ${getMoodColor(
+                            location.averageMood
+                          )} rounded-full`}
+                        ></div>
+                        <div>
+                          <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                            <MapPin className="w-4 h-4 mr-1" />
+                            {location.location}
+                          </h3>
+                          <p className="text-sm text-gray-600">
+                            {location.totalEntries} entries • Avg mood:{" "}
+                            {location.averageMood.toFixed(1)}/6
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm text-gray-600">
+                          Top Emotions
+                        </div>
+                        <div className="text-sm font-medium text-gray-900">
+                          {location.topEmotions.join(", ") || "No data"}
+                        </div>
+                      </div>
                     </div>
-                    <span className="font-medium text-gray-900">Exercise</span>
-                  </div>
-                  <div className="text-sm text-orange-700">High Impact</div>
-                </div>
 
-                <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg border border-blue-200">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
-                      <Users className="w-5 h-5 text-white" />
+                    {/* Mood Distribution */}
+                    <div className="grid grid-cols-5 gap-2">
+                      <div className="text-center p-2 bg-red-50 rounded">
+                        <div className="text-lg font-bold text-red-600">
+                          {location.moodDistribution.veryBad}
+                        </div>
+                        <div className="text-xs text-red-600">Very Bad</div>
+                      </div>
+                      <div className="text-center p-2 bg-orange-50 rounded">
+                        <div className="text-lg font-bold text-orange-600">
+                          {location.moodDistribution.bad}
+                        </div>
+                        <div className="text-xs text-orange-600">Bad</div>
+                      </div>
+                      <div className="text-center p-2 bg-yellow-50 rounded">
+                        <div className="text-lg font-bold text-yellow-600">
+                          {location.moodDistribution.neutral}
+                        </div>
+                        <div className="text-xs text-yellow-600">Neutral</div>
+                      </div>
+                      <div className="text-center p-2 bg-green-50 rounded">
+                        <div className="text-lg font-bold text-green-600">
+                          {location.moodDistribution.good}
+                        </div>
+                        <div className="text-xs text-green-600">Good</div>
+                      </div>
+                      <div className="text-center p-2 bg-green-100 rounded">
+                        <div className="text-lg font-bold text-green-700">
+                          {location.moodDistribution.veryGood}
+                        </div>
+                        <div className="text-xs text-green-700">Very Good</div>
+                      </div>
                     </div>
-                    <span className="font-medium text-gray-900">Social</span>
                   </div>
-                  <div className="text-sm text-blue-700">Medium Impact</div>
-                </div>
+                </Card>
+              ))}
 
-                <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg border border-green-200">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center">
-                      <Brain className="w-5 h-5 text-white" />
-                    </div>
-                    <span className="font-medium text-gray-900">Work</span>
+              {locationData.length === 0 && (
+                <Card className="bg-white border border-gray-200 shadow-sm">
+                  <div className="p-8 text-center">
+                    <Globe className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                      No Location Data
+                    </h3>
+                    <p className="text-gray-600">
+                      Location data will appear here once users start logging
+                      moods with location information.
+                    </p>
                   </div>
-                  <div className="text-sm text-green-700">Low Impact</div>
-                </div>
-              </div>
+                </Card>
+              )}
             </div>
-          </Card>
+          )}
 
           {/* Action Button */}
           <div className="text-center mt-8">
