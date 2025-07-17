@@ -13,6 +13,10 @@ const MoodHeatMap = dynamic(
   }
 );
 
+const Earth = dynamic(() => import("@/app/dashboard/components/Globe"), {
+  ssr: false,
+});
+
 interface MoodEntry {
   id: string;
   selectedEmotions: string[];
@@ -203,7 +207,7 @@ export default function DashboardPage() {
 
           {/* Tabs */}
           <div className="flex space-x-1 mb-6 bg-white rounded-lg p-1 border border-gray-200 shadow-sm">
-            {["Mood Heatmap", "Location Details"].map((tab) => (
+            {["Mood Heatmap", "Location Details", "Globe"].map((tab) => (
               <Button
                 key={tab}
                 variant={activeTab === tab ? "default" : "ghost"}
@@ -234,6 +238,26 @@ export default function DashboardPage() {
                     </div>
                   </div>
                   <MoodHeatMap moodEntries={moodEntries} />
+                </div>
+              </Card>
+            </div>
+          )}
+
+          {/* Globe Tab */}
+          {activeTab === "Globe" && (
+            <div className="space-y-6">
+              <Card className="bg-white border border-gray-200 shadow-sm">
+                <div className="p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                      <Globe className="w-5 h-5 mr-2" />
+                      Globe
+                    </h3>
+                    <div className="text-sm text-gray-600">
+                      Heat = Mood intensity by location
+                    </div>
+                  </div>
+                  <Earth />
                 </div>
               </Card>
             </div>
